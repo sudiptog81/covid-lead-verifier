@@ -1,56 +1,50 @@
-import time
-import datetime
-import pickle
-from selenium import webdriver
-from selenium.webdriver import ActionChains
-from selenium.webdriver.common.keys import Keys
-from bs4 import BeautifulSoup
+import re
+import os
+import cv2
+import discord
+import pytesseract
+import numpy as np
+from pytesseract import Output
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def preprocess(image):
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    threshold_img = cv2.threshold(
+        gray_image, 0, 255,
+        cv2.THRESH_BINARY | cv2.THRESH_OTSU
+    )[1]
+    text = pytesseract.image_to_string(threshold_img)
+    return text
+
+
+class Client(discord.Client):
+    async def on_ready(self):
+        print('Logged in as', self.user.name, self.user.id)
+
+    async def on_message(self, message):
+        if message.author.id == self.user.id:
+            return
+        else:
+            if len(message.attachments) > 0:
+                for attachment in message.attachments:
+                    try:
+                        image = cv2.imdecode(
+                            np.asarray(
+                                bytearray(await attachment.read()),
+                                dtype="uint8"
+                            ),
+                            flags=cv2.COLOR_BGR2RGB
+                        )
+                        data = preprocess(image)
+                        await message.reply(data)
+                    except Exception as e:
+                        await message.reply('Could not process text')
 
 
 if __name__ == '__main__':
-    try:
-        options = webdriver.ChromeOptions()
-        options.add_argument('--user-data-dir=./data')
-        options.add_argument('--download.default_directory=./images')
-        driver = webdriver.Chrome(options=options)
-        driver.get('https://web.whatsapp.com/')
-
-        time.sleep(10)
-
-        group = driver.find_element_by_xpath(
-            '//span[@title=\'Lead Verifier\']')
-        group.click()
-
-        msg_list = []
-        messages = driver.find_elements_by_css_selector(
-            '.focusable-list-item'
-        )
-        for msg in messages:
-            msg_list.append(msg.get_attribute('innerHTML'))
-
-        soup = BeautifulSoup(msg_list[len(msg_list) - 1], 'lxml')
-        image = soup.find_all('img')
-        image = image[len(image) - 1].get('src')
-        group = driver.find_element_by_xpath(
-            '//span[@title=\'Lead Verifier\']'
-        )
-
-        # button = driver.find_element_by_xpath(
-        #     '//img[@src=\'' + image + '\']'
-        # )
-        # print(button.get_attribute('innerHTML'))
-
-        print(image)
-
-        filename = image.split('/')[-1] + '.jpg'
-        print(filename)
-
-        caption = soup.find_all('span', class_='copyable-text')
-        caption = caption[0].find(
-            'span'
-        ).get_text()
-        print(caption)
-
-        # driver.close()
-    except Exception as e:
-        print(e)
+    client = Client()
+    client.run(os.environ['DISCORD_TOKEN'])
