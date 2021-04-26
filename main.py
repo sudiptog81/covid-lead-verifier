@@ -4,7 +4,6 @@ import cv2
 import discord
 import pytesseract
 import numpy as np
-from pytesseract import Output
 
 from dotenv import load_dotenv
 
@@ -35,7 +34,7 @@ class Client(discord.Client):
                         image = cv2.imdecode(
                             np.asarray(
                                 bytearray(await attachment.read()),
-                                dtype="uint8"
+                                dtype='uint8'
                             ),
                             flags=cv2.COLOR_BGR2RGB
                         )
